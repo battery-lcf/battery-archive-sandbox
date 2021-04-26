@@ -1,0 +1,9 @@
+# This configuration file is for the python scripts in the battery-lfc framework.
+# For a production example please refer to the https://github.com/battery-lcf repository on GitHub.
+version: "0.1"
+
+environment:
+  DATABASE_CONNECTION: "postgresql://postgres:HLgCazkIx7Y1JYldPmZg27PhNiUDnaAP@localhost:5432/postgres"
+  STYLE: 'unix'
+  PLOT: False
+  SAVE: True

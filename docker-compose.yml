@@ -1,0 +1,83 @@
+## Copyright 2021 National Technology & Engineering Solutions of Sandia, LLC (NTESS). Under the terms of Contract DE-NA0003525 with NTESS, the U.S. Government retains certain rights in this software.
+version: "2"
+x-redash-service: &redash-service
+  image: redash/redash:8.0.0.b32245
+  depends_on:
+    - postgres
+    - redis
+  env_file: ./env
+  restart: always
+  links:
+    - "ds-postgres:ds-postgres"
+services:
+  server:
+    <<: *redash-service
+    command: server
+    ports:
+      - "5000:5000"
+    environment:
+      REDASH_WEB_WORKERS: 4
+  scheduler:
+    <<: *redash-service
+    command: scheduler
+    environment:
+      QUEUES: "celery"
+      WORKERS_COUNT: 1
+  scheduled_worker:
+    <<: *redash-service
+    command: worker
+    environment:
+      QUEUES: "scheduled_queries,schemas"
+      WORKERS_COUNT: 1
+  adhoc_worker:
+    <<: *redash-service
+    command: worker
+    environment:
+      QUEUES: "queries"
+      WORKERS_COUNT: 2
+
+# Supporting containers 
+  redis:
+    image: redis:5.0-alpine
+    restart: always
+  postgres:
+    image: postgres:9.6-alpine
+    env_file: ./env
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+    restart: always
+  nginx:
+    image: redash/nginx:latest
+    ports:
+      - "80:80"
+    depends_on:
+      - server
+    links:
+      - server:redash
+    restart: always
+
+## Datastorage for battery postgres instance
+## Avoiding an alpine image for a data source
+  ds-postgres:      
+    image: postgres:12
+    ports:
+      - "5432:5432"
+    env_file: ./env
+    volumes:
+      - "./datasources/postgres/postgres.conf:/usr/local/etc/postgres/postgres.conf"
+      - "./datasources/postgres/data:/var/lib/postgresql/data"
+      - "./datasources/postgres/cell_data/init.sql:/docker-entrypoint-initdb.d/init.sql"
+    
+    command: "postgres -c config_file=/usr/local/etc/postgres/postgres.conf"
+    restart: always
+      
+## Allow us to peak into databases. 
+  pgadmin:
+    image: dpage/pgadmin4
+    ports:
+      - "26543:80"
+    env_file: ./env
+    depends_on: 
+      - postgres
+    links:
+      - "ds-postgres:ds-postgres"
